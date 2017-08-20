@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+if [ -n "${PACKAGES}" ]; then
+	apk --no-cache add $PACKAGES
+fi
+
+exec "$@"
