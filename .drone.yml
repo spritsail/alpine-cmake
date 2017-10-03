@@ -1,36 +1,31 @@
-services:
-  docker:
-    image: docker:dind
-    privileged: true
-
 pipeline:
   build:
     image: docker
-    environment:
-      - DOCKER_HOST=tcp://docker:2375
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - echo "Building with alpine:$ALPINE_VERSION"
-      - docker build --build-arg VER=$ALPINE_VERSION -t devbuild .
+      - echo "Building with alpine:$TAG"
+      - docker build --build-arg VER=$TAG -t frebib/alpine-cmake:$TAG .
 
   test:
     image: docker
-    environment:
-      - DOCKER_HOST=tcp://docker:2375
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - docker run --rm devbuild sh -c 'for b in cmake make gcc g++; do sh -eaxc "$b --version"; done'
+      - docker run --rm frebib/alpine-cmake:$TAG 
+            sh -c 'for b in cmake make gcc g++; do sh -eaxc "$b --version"; done'
 
   publish:
     image: docker
     secrets: [ DOCKER_USER, DOCKER_PASS ]
-    environment:
-      - DOCKER_HOST=tcp://docker:2375
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
       - docker login -u $DOCKER_USER -p $DOCKER_PASS
-      - docker tag devbuild frebib/alpine-cmake:$ALPINE_VERSION
-      - docker push frebib/alpine-cmake
+      - docker push frebib/alpine-cmake:$TAG
 
 matrix:
-  ALPINE_VERSION:
+  TAG:
     - 3.4
     - 3.5
     - 3.6
