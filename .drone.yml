@@ -1,33 +1,38 @@
 pipeline:
   build:
-    image: docker
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    commands:
-      - echo "Building with alpine:$TAG"
-      - docker build --build-arg VER=$TAG -t frebib/alpine-cmake:$TAG .
+    image: spritsail/docker-build
+    volumes: [ '/var/run/docker.sock:/var/run/docker.sock' ]
+    repo: alpine-cmake-dev
+    build_args:
+      - ALPINE_TAG=${ALPINE_TAG%%,*}
 
   test:
     image: docker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - docker run --rm frebib/alpine-cmake:$TAG 
+      - docker run --rm alpine-cmake-dev
             sh -c 'for b in cmake make gcc g++; do sh -eaxc "$b --version"; done'
 
   publish:
-    image: docker
-    secrets: [ DOCKER_USER, DOCKER_PASS ]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    commands:
-      - docker login -u $DOCKER_USER -p $DOCKER_PASS
-      - docker push frebib/alpine-cmake:$TAG
+    image: spritsail/docker-publish
+    when: { branch: [ master ], event: [ push, tag, deployment ] }
+    volumes: [ '/var/run/docker.sock:/var/run/docker.sock' ]
+    secrets: [ docker_username, docker_password, microbadger_token ]
+    from: alpine-cmake-dev
+    repo: 'spritsail/alpine-cmake'
+    tags: ${ALPINE_TAG}
+
+  notify:
+    image: spritsail/notify
+    when: { status: [ success, failure ] }
+    secrets: [ webhook_url, notify_token ]
+    tag: ${ALPINE_TAG%%,*}
 
 matrix:
-  TAG:
-    - 3.4
+  ALPINE_TAG:
     - 3.5
     - 3.6
     - 3.7
-    - latest
+    - 3.8,latest
+    - edge
